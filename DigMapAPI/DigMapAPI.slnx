@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="DigMap.Application/DigMap.Application.csproj" />
+  <Project Path="DigMap.Domain/DigMap.Domain.csproj" />
+  <Project Path="DigMap.Infrastructure/DigMap.Infrastructure.csproj" />
+  <Project Path="DigMapAPI/DigMap.Api.csproj" />
+</Solution>

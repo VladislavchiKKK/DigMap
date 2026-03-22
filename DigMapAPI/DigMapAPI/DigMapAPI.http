@@ -1,0 +1,6 @@
+@DigMapAPI_HostAddress = http://localhost:5070
+
+GET {{DigMapAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
