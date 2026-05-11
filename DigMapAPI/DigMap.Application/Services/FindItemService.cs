@@ -110,5 +110,51 @@ namespace DigMap.Application.Services
                 _ => throw new InvalidOperationException("Невідомий тип знахідки")
             };
         }
+
+        public async Task<FindItemDto> UpdateCoinAsync(int id, CreateCoinDto dto, string userId)
+        {
+            var item = await _repository.GetByIdAsync(id);
+
+            if (item == null || item.UserId != userId)
+                throw new UnauthorizedAccessException("Запис не знайдено або немає доступу.");
+
+            if (item is not Coin coin)
+                throw new InvalidOperationException("Цей запис не є монетою.");
+
+            coin.Name = dto.Name;
+            coin.Description = dto.Description;
+            coin.Latitude = dto.Latitude;
+            coin.Longitude = dto.Longitude;
+            coin.DateFound = dto.DateFound;
+            coin.Year = dto.Year;
+            coin.Metal = dto.Metal;
+            coin.Denomination = dto.Denomination;
+
+            await _repository.UpdateAsync(coin);
+            return MapToDto(coin);
+        }
+
+        public async Task<FindItemDto> UpdateArtifactAsync(int id, CreateArtifactDto dto, string userId)
+        {
+            var item = await _repository.GetByIdAsync(id);
+
+            if (item == null || item.UserId != userId)
+                throw new UnauthorizedAccessException("Запис не знайдено або немає доступу.");
+
+            if (item is not Artifact artifact)
+                throw new InvalidOperationException("Цей запис не є артефактом.");
+
+            artifact.Name = dto.Name;
+            artifact.Description = dto.Description;
+            artifact.Latitude = dto.Latitude;
+            artifact.Longitude = dto.Longitude;
+            artifact.DateFound = dto.DateFound;
+            artifact.Era = dto.Era;
+            artifact.Material = dto.Material;
+            artifact.Class = dto.Class;
+
+            await _repository.UpdateAsync(artifact);
+            return MapToDto(artifact);
+        }
     }
 }

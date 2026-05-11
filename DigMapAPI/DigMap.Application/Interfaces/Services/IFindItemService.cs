@@ -13,5 +13,8 @@ namespace DigMap.Application.Interfaces.Services
         Task<FindItemDto> CreateArtifactAsync(CreateArtifactDto dto, string userId);
 
         Task DeleteItemAsync(int id, string userId);
+
+        Task<FindItemDto> UpdateCoinAsync(int id, CreateCoinDto dto, string userId);
+        Task<FindItemDto> UpdateArtifactAsync(int id, CreateArtifactDto dto, string userId);
     }
 }

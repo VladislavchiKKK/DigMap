@@ -1,5 +1,5 @@
 // ✅ ТВІЙ ПОРТ (7294)
-const API_BASE = "https://localhost:7294/api"; 
+const API_BASE = "https://localhost:7231/api"; 
 
 let token = localStorage.getItem("digmap_token");
 let isLoginMode = true;
@@ -207,7 +207,7 @@ async function saveData() {
     }
 
     const method = editingId ? "PUT" : "POST";
-    const url = editingId ? `${API_BASE}/finds/${editingId}` : `${API_BASE}/finds`;
+    const url = editingId ? `${API_BASE}/finds/${type}/${editingId}` : `${API_BASE}/finds/${type}`;
 
     try {
         const res = await fetch(url, {

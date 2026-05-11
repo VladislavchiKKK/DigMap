@@ -51,6 +51,30 @@ namespace DigMap.Api.Controllers
             return Ok(createdArtifact);
         }
 
+        [HttpPut("coin/{id}")]
+        public async Task<ActionResult<FindItemDto>> UpdateCoin(int id, [FromBody] CreateCoinDto dto)
+        {
+            try
+            {
+                var updatedCoin = await _service.UpdateCoinAsync(id, dto, GetUserId());
+                return Ok(updatedCoin);
+            }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPut("artifact/{id}")]
+        public async Task<ActionResult<FindItemDto>> UpdateArtifact(int id, [FromBody] CreateArtifactDto dto)
+        {
+            try
+            {
+                var updatedArtifact = await _service.UpdateArtifactAsync(id, dto, GetUserId());
+                return Ok(updatedArtifact);
+            }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(int id)
         {
