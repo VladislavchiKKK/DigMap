@@ -3,7 +3,6 @@ const API_BASE = "https://localhost:7231/api";
 let token = localStorage.getItem("digmap_token");
 let isLoginMode = true;
 let editingId = null;
-let currentFinds = [];
 
 const map = L.map('map').setView([49.4, 32.0], 6);
 
@@ -38,7 +37,7 @@ function toggleAuthMode() {
     document.getElementById("authSwitchBtn").innerText = isLoginMode ? "Зареєструватися" : "Увійти";
     document.getElementById("authError").classList.add("hidden");
 }
- 
+
 async function handleAuth(e) {
     e.preventDefault();
 
@@ -58,18 +57,29 @@ async function handleAuth(e) {
         });
 
         const contentType = res.headers.get("content-type");
-        let data = (contentType && contentType.includes("application/json")) 
-            ? await res.json() 
-            : await res.text();
+        let data;
+
+        if (contentType && contentType.includes("application/json")) {
+            data = await res.json();
+        } else {
+            data = await res.text();
+        }
 
         if (!res.ok) {
             let errorMessage = "Сталася помилка авторизації";
 
             if (Array.isArray(data)) {
                 errorMessage = data.map(err => {
-                    if (err.code === "DuplicateUserName") return "⚠️ Ця пошта вже зареєстрована!";
-                    if (err.code === "PasswordTooShort") return "⚠️ Пароль надто короткий (мін. 4 символи).";
-                    return "⚠️ " + (err.description || err);
+                    let errorText = typeof err === 'string' ? err : (err.description || "Невідома помилка");
+
+                    if (errorText.includes("DuplicateUserName") || errorText.includes("is already taken")) 
+                        return "⚠️ Ця пошта вже зареєстрована!";
+                    if (errorText.includes("PasswordTooShort") || errorText.includes("too short")) 
+                        return "⚠️ Пароль надто короткий (мін. 4 символи).";
+                    if (errorText.includes("Невірний логін або пароль")) 
+                        return "⛔ Невірний логін або пароль. Спробуйте ще раз.";
+
+                    return "⚠️ " + errorText;
                 }).join("\n");
             }
             else if (typeof data === 'object' && data.message) {
@@ -87,13 +97,15 @@ async function handleAuth(e) {
             return;
         }
 
-        const tokenValue = data.token || (typeof data === 'object' ? data.token : null) || data;
+        const tokenValue = data.token || (typeof data === 'object' ? data.token : null);
 
-        if (tokenValue && typeof tokenValue === 'string') {
+        if (tokenValue) {
             token = tokenValue;
             localStorage.setItem("digmap_token", token);
             
-            if (!isLoginMode) alert("🎉 Реєстрація успішна! Ласкаво просимо.");
+            if (!isLoginMode) {
+                alert("🎉 Реєстрація успішна! Ласкаво просимо.");
+            }
             checkAuth();
         }
 
@@ -114,26 +126,28 @@ async function loadFinds() {
     try {
         const res = await fetch(API_BASE + "/finds", {
             method: "GET",
-            headers: { "Authorization": "Bearer " + token }
+            headers: { 
+                "Authorization": "Bearer " + token
+            }
         });
 
         if (res.status === 401) { logout(); return; }
 
-        currentFinds = await res.json();
+        const finds = await res.json();
         
         map.eachLayer(l => { if (l instanceof L.Marker) map.removeLayer(l); });
         const listDiv = document.getElementById("list");
         listDiv.innerHTML = "";
 
-        currentFinds.forEach(item => {
+        finds.forEach(item => {
             L.marker([item.latitude, item.longitude]).addTo(map)
                 .bindPopup(`<b>${item.name}</b><br>${item.description}`);
 
-            const isCoin = item.$type === "coin" || item.type === "Coin" || item.year !== undefined;
-            
-            let badgeClass = isCoin ? "badge-coin" : "badge-artifact";
-            let badgeText = isCoin ? "💰 Монета" : "🏺 Артефакт";
-            let borderClass = isCoin ? "border-coin" : "border-artifact";
+                const isCoin = item.$type === "coin";
+
+                let badgeClass = isCoin ? "badge-coin" : "badge-artifact";
+                let badgeText = isCoin ? "💰 Монета" : "🏺 Артефакт";
+                let borderClass = isCoin ? "border-coin" : "border-artifact";
             
             listDiv.innerHTML += `
                 <div class="col-md-4 col-sm-6">
@@ -147,7 +161,7 @@ async function loadFinds() {
                             <p class="card-text text-secondary">${item.description || 'Опис відсутній...'}</p>
                         </div>
                         <div class="card-footer bg-white border-0 d-flex justify-content-end gap-2 pb-3 pe-3">
-                            <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="prepareEdit(${item.id})">✏️ Ред.</button>
+                            <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick='startEdit(${JSON.stringify(item)})'>✏️ Ред.</button>
                             <button class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="deleteItem(${item.id})">🗑️ Вид.</button>
                         </div>
                     </div>
@@ -162,10 +176,17 @@ async function saveData() {
     const lng = document.getElementById('inpLng').value;
     const type = document.getElementById('itemType').value;
 
-    if (!name.trim()) return alert("⚠️ Будь ласка, введіть назву знахідки!");
-    if (!lat || !lng) return alert("⚠️ Ви забули вказати місце на карті!\nКлікніть по карті або натисніть кнопку GPS.");
+    if (!name.trim()) {
+        alert("⚠️ Будь ласка, введіть назву знахідки!");
+        return;
+    }
+    if (!lat || !lng) {
+        alert("⚠️ Ви забули вказати місце на карті!\nКлікніть по карті або натисніть кнопку GPS.");
+        return;
+    }
 
     let data = {
+        $type: type,
         id: editingId ? editingId : 0,
         name: name,
         description: document.getElementById('inpDesc').value,
@@ -185,9 +206,7 @@ async function saveData() {
     }
 
     const method = editingId ? "PUT" : "POST";
-    // Адаптація під роздільні ендпоінти
-    const urlSuffix = editingId ? `/${editingId}` : `/${type}`;
-    const url = `${API_BASE}/finds${urlSuffix}`;
+    const url = editingId ? `${API_BASE}/finds/${type}/${editingId}` : `${API_BASE}/finds/${type}`;
 
     try {
         const res = await fetch(url, {
@@ -199,30 +218,33 @@ async function saveData() {
             body: JSON.stringify(data)
         });
 
+        const contentType = res.headers.get("content-type");
+        let responseData;
+        if (contentType && contentType.includes("application/json")) {
+            responseData = await res.json();
+        } else {
+            responseData = await res.text();
+        }
+
         if (res.ok) {
             bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
             loadFinds();
-            return;
+        } else {
+            let errorText = "Не вдалося зберегти дані.";
+
+            if (responseData.errors) {
+                const messages = Object.values(responseData.errors).flat();
+                errorText = "⚠️ Перевірте дані:\n" + messages.join("\n");
+            } 
+            else if (responseData.message) {
+                errorText = "⚠️ " + responseData.message;
+            }
+            else if (typeof responseData === 'string') {
+                errorText = "⚠️ Помилка: " + responseData;
+            }
+
+            alert(errorText);
         }
-
-        const contentType = res.headers.get("content-type");
-        const responseData = (contentType && contentType.includes("application/json")) 
-            ? await res.json() 
-            : await res.text();
-
-        let errorText = "Не вдалося зберегти дані.";
-
-        if (responseData.errors) {
-            const messages = Object.values(responseData.errors).flat();
-            errorText = "⚠️ Перевірте дані:\n" + messages.join("\n");
-        } else if (responseData.message) {
-            errorText = "⚠️ " + responseData.message;
-        } else if (typeof responseData === 'string') {
-            errorText = "⚠️ Помилка: " + responseData;
-        }
-
-        alert(errorText);
-        
     } catch (e) { 
         console.error(e);
         alert("🔌 Помилка з'єднання! Перевірте інтернет.");
@@ -259,16 +281,12 @@ function openAddModal() {
     modal.show();
 }
 
-function prepareEdit(id) {
-    const item = currentFinds.find(f => f.id === id);
-    if (item) startEdit(item);
-}
-
 function startEdit(item) {
     editingId = item.id;
     
-    const type = item.year !== undefined ? 'coin' : 'artifact';
-    document.getElementById('itemType').value = type;
+    const currentType = item.$type;
+    document.getElementById('itemType').value = currentType;
+    
     toggleFields();
 
     document.getElementById('inpName').value = item.name;
@@ -276,7 +294,7 @@ function startEdit(item) {
     document.getElementById('inpLat').value = item.latitude;
     document.getElementById('inpLng').value = item.longitude;
 
-    if (type === 'coin') {
+    if (item.$type === 'coin') {
         document.getElementById('inpYear').value = item.year;
         document.getElementById('inpMetal').value = item.metal;
         document.getElementById('inpDenom').value = item.denomination;

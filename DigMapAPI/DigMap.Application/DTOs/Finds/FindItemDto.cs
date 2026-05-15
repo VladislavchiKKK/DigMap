@@ -1,6 +1,9 @@
-﻿namespace DigMap.Application.DTOs.Finds
+﻿using System.Text.Json.Serialization; // Обов'язково додай цей using!
+
+namespace DigMap.Application.DTOs.Finds
 {
-    //Те, що ми будемо віддавати клієнту
+    [JsonDerivedType(typeof(CoinDto), typeDiscriminator: "coin")]
+    [JsonDerivedType(typeof(ArtifactDto), typeDiscriminator: "artifact")]
     public abstract class FindItemDto
     {
         public int Id { get; set; }
